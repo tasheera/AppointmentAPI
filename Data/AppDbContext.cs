@@ -10,5 +10,6 @@ namespace AppointmentAPI.Data
 
         public DbSet<Service> Services => Set<Service>();
         public DbSet<Slot> Slots => Set<Slot>();
+        public DbSet<Booking> Bookings => Set<Booking>(); 
     }
 }
