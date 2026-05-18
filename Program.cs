@@ -6,6 +6,7 @@ using Microsoft.OpenApi.Models;
 using System.Text;
 using AppointmentAPI.Data;
 using AppointmentAPI.Models;
+using AppointmentAPI.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -68,6 +69,14 @@ builder.Services.AddSwaggerGen(c =>
 });
 
 builder.Services.AddControllers();
+
+//bind settings from appsettings.json
+builder.Services.Configure<EmailSettings>(
+    builder.Configuration.GetSection("EmailSettings"));
+
+//register email service
+builder.Services.AddScoped<IEmailService, EmailService>();
+
 builder.Services.AddAuthorization();
 
 builder.Services.AddCors(options =>
