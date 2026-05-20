@@ -16,18 +16,21 @@ namespace AppointmentAPI.Services
         }
 
         public async Task SendBookingConfirmationAsync(string toEmail, string userName,
-            string serviceName, DateTime startTime, DateTime endTime)
+    string serviceName, string providerName, string providerLocation,  // ← new params
+    DateTime startTime, DateTime endTime)
         {
             var subject = "Booking Confirmed ✅";
 
             var body = $"""
-                <h2>Hi {userName}, your booking is confirmed!</h2>
-                <p><strong>Service:</strong> {serviceName}</p>
-                <p><strong>Date:</strong> {startTime:dddd, MMMM d yyyy}</p>
-                <p><strong>Time:</strong> {startTime:hh:mm tt} - {endTime:hh:mm tt}</p>
-                <br/>
-                <p>Thank you for booking with us.</p>
-            """;
+        <h2>Hi {userName}, your booking is confirmed!</h2>
+        <p><strong>Service:</strong> {serviceName}</p>
+        <p><strong>Provider:</strong> {providerName}</p>
+        <p><strong>Location:</strong> {providerLocation}</p>
+        <p><strong>Date:</strong> {startTime:dddd, MMMM d yyyy}</p>
+        <p><strong>Time:</strong> {startTime:hh:mm tt} - {endTime:hh:mm tt}</p>
+        <br/>
+        <p>Thank you for booking with us.</p>
+    """;
 
             await SendEmailAsync(toEmail, subject, body);
         }
