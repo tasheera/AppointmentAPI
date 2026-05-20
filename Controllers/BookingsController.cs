@@ -36,6 +36,7 @@ namespace AppointmentAPI.Controllers
             // check if slot exists
             var slot = await _db.Slots
             .Include(s => s.Service)
+            .Include(s => s.Provider)
             .FirstOrDefaultAsync(s => s.Id == dto.SlotId);
 
             if (slot == null)
@@ -45,14 +46,14 @@ namespace AppointmentAPI.Controllers
             if (slot.IsBooked)
                 return BadRequest(new { message = "Slot is already booked" });
 
-            
+
             var existingBooking = await _db.Bookings
                 .AnyAsync(b => b.UserId == userId && b.SlotId == dto.SlotId);// prevent user from double-booking the same slot
 
             if (existingBooking)
                 return BadRequest(new { message = "You already booked this slot" });
 
-           
+
             slot.IsBooked = true;
 
             var booking = new Booking
@@ -72,6 +73,8 @@ namespace AppointmentAPI.Controllers
                     user.Email!,
                     user.FullName,
                     slot.Service.Name,
+                    slot.Provider.Name,
+                    slot.Provider.Location,
                     slot.StartTime,
                     slot.EndTime
                 );
