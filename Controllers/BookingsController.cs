@@ -5,6 +5,7 @@ using System.Security.Claims;
 using AppointmentAPI.Data;
 using AppointmentAPI.DTOs;
 using AppointmentAPI.Models;
+using AppointmentAPI.Services;
 
 namespace AppointmentAPI.Controllers
 {
@@ -14,43 +15,47 @@ namespace AppointmentAPI.Controllers
     public class BookingsController : ControllerBase
     {
         private readonly AppDbContext _db;
+        private readonly IEmailService _emailService;
 
-        public BookingsController(AppDbContext db)
+
+        public BookingsController(AppDbContext db, IEmailService emailService)
         {
             _db = db;
+            _emailService = emailService;
         }
 
-        // POST /api/bookings
+        // create new booking
         [HttpPost]
         public async Task<IActionResult> Book(BookingDto dto)
         {
-            // Get userId from JWT token — never trust client-sent userId
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);// get user id from JWT 
 
             if (userId == null)
                 return Unauthorized(new { message = "Invalid token" });
 
-            // Check if slot exists
-            var slot = await _db.Slots.FindAsync(dto.SlotId);
+            // check if slot exists
+            var slot = await _db.Slots
+            .Include(s => s.Service)
+            .Include(s => s.Provider)
+            .FirstOrDefaultAsync(s => s.Id == dto.SlotId);
 
             if (slot == null)
                 return NotFound(new { message = "Slot not found" });
 
-            // Check if slot is already booked
+            // checked if slot is already booked
             if (slot.IsBooked)
                 return BadRequest(new { message = "Slot is already booked" });
 
-            // Check if user already has a booking for this slot
+
             var existingBooking = await _db.Bookings
-                .AnyAsync(b => b.UserId == userId && b.SlotId == dto.SlotId);
+                .AnyAsync(b => b.UserId == userId && b.SlotId == dto.SlotId);// prevent user from double-booking the same slot
 
             if (existingBooking)
                 return BadRequest(new { message = "You already booked this slot" });
 
-            // Mark slot as booked
+
             slot.IsBooked = true;
 
-            // Create booking
             var booking = new Booking
             {
                 UserId = userId,
@@ -61,6 +66,20 @@ namespace AppointmentAPI.Controllers
             _db.Bookings.Add(booking);
             await _db.SaveChangesAsync();
 
+            var user = await _db.Users.FindAsync(userId);
+            if (user != null)
+            {
+                await _emailService.SendBookingConfirmationAsync(// send confirmation email
+                    user.Email!,
+                    user.FullName,
+                    slot.Service.Name,
+                    slot.Provider.Name,
+                    slot.Provider.Location,
+                    slot.StartTime,
+                    slot.EndTime
+                );
+            }
+
             return Ok(new
             {
                 message = "Booking confirmed",
@@ -70,7 +89,8 @@ namespace AppointmentAPI.Controllers
             });
         }
 
-        // GET /api/bookings/my
+
+        // get user's bookings
         [HttpGet("my")]
         public async Task<IActionResult> MyBookings()
         {
@@ -104,7 +124,8 @@ namespace AppointmentAPI.Controllers
             return Ok(bookings);
         }
 
-        // DELETE /api/bookings/{id}
+
+        // cancel booking
         [HttpDelete("{id}")]
         public async Task<IActionResult> CancelBooking(int id)
         {
@@ -112,16 +133,29 @@ namespace AppointmentAPI.Controllers
 
             var booking = await _db.Bookings
                 .Include(b => b.Slot)
+                    .ThenInclude(s => s.Service)
                 .FirstOrDefaultAsync(b => b.Id == id && b.UserId == userId);
 
             if (booking == null)
                 return NotFound(new { message = "Booking not found" });
 
-            // Free up the slot
             booking.Slot.IsBooked = false;
 
             _db.Bookings.Remove(booking);
             await _db.SaveChangesAsync();
+
+
+            // send cancellation email
+            var user = await _db.Users.FindAsync(userId);
+            if (user != null)
+            {
+                await _emailService.SendBookingCancellationAsync(
+                    user.Email!,
+                    user.FullName,
+                    booking.Slot.Service.Name,
+                    booking.Slot.StartTime
+                );
+            }
 
             return Ok(new { message = "Booking cancelled successfully" });
         }

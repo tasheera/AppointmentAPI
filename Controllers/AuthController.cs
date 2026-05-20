@@ -42,6 +42,8 @@ namespace AppointmentAPI.Controllers
             if (!result.Succeeded)
                 return BadRequest(result.Errors);
 
+            await _userManager.AddToRoleAsync(user, "User");
+
             return Ok(new { message = "Registered successfully" });
         }
 
@@ -53,24 +55,28 @@ namespace AppointmentAPI.Controllers
             if (user == null || !await _userManager.CheckPasswordAsync(user, dto.Password))
                 return Unauthorized(new { message = "Invalid email or password" });
 
-            var token = GenerateToken(user);
+            var token = await GenerateTokenAsync(user);
 
             return Ok(new { token });
         }
 
-        private string GenerateToken(AppUser user)
+        private async Task<string> GenerateTokenAsync(AppUser user)
         {
             var key = new SymmetricSecurityKey(
                 Encoding.UTF8.GetBytes(_config["Jwt:Key"]!));
 
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+            var roles = await _userManager.GetRolesAsync(user);
 
-            var claims = new[]
+            var claims = new List<Claim>
             {
                 new Claim(ClaimTypes.NameIdentifier, user.Id),
                 new Claim(ClaimTypes.Email, user.Email!),
                 new Claim(ClaimTypes.Name, user.FullName)
             };
+
+            foreach (var role in roles)
+                claims.Add(new Claim(ClaimTypes.Role, role));
 
             var token = new JwtSecurityToken(
                 issuer: _config["Jwt:Issuer"],

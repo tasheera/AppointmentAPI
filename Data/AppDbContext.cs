@@ -9,6 +9,7 @@ namespace AppointmentAPI.Data
         public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
 
         public DbSet<Service> Services => Set<Service>();
+        public DbSet<Provider> Providers => Set<Provider>(); 
         public DbSet<Slot> Slots => Set<Slot>();
         public DbSet<Booking> Bookings => Set<Booking>(); 
     }
