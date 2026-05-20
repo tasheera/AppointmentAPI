@@ -19,11 +19,38 @@ namespace AppointmentAPI.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetAvailableSlots([FromQuery] DateOnly date)
+        public async Task<IActionResult> GetAvailableSlots(
+            [FromQuery] DateOnly date,
+            [FromQuery] int? providerId,
+            [FromQuery] int? serviceId)
         {
-            var slots = await _db.Slots
+            var query = _db.Slots
                 .Include(s => s.Service)
+                .Include(s => s.Provider)
                 .Where(s => DateOnly.FromDateTime(s.StartTime) == date && !s.IsBooked)
+                .AsQueryable();
+
+            if (providerId.HasValue)
+                query = query.Where(s => s.ProviderId == providerId.Value);
+
+            if (serviceId.HasValue)
+                query = query.Where(s => s.ServiceId == serviceId.Value);
+
+            var slots = await query
+                .OrderBy(s => s.StartTime)
+                .Select(s => new
+                {
+                    s.Id,
+                    s.StartTime,
+                    s.EndTime,
+                    Service = new { s.Service.Id, s.Service.Name },
+                    Provider = new
+                    {
+                        s.Provider.Id,
+                        s.Provider.Name,
+                        s.Provider.Location
+                    }
+                })
                 .ToListAsync();
 
             return Ok(slots);
