@@ -20,11 +20,7 @@ WORKDIR /app
 COPY --from=publish /app/publish .
 
 # Set environment variables
-ENV ASPNETCORE_URLS=http://+:5000
 ENV ASPNETCORE_ENVIRONMENT=Production
 
-# Expose port
-EXPOSE 5000
 
-# Run the application
-ENTRYPOINT ["dotnet", "AppointmentAPI.dll"]
+CMD ASPNETCORE_URLS=http://+:$PORT dotnet AppointmentAPI.dll
